@@ -34,7 +34,7 @@ check_latest_sing-box() {
 
   # 获取最终版本号
   local VERSION=$(wget --no-check-certificate --tries=2 --timeout=3 -qO- https://api.github.com/repos/SagerNet/sing-box/releases | awk -F '["v]' -v var="tag_name.*$FORCE_VERSION" '$0 ~ var {print $5; exit}')
-  VERSION=${VERSION:-'1.13.0-rc.3'}
+  VERSION=${VERSION:-'1.13.0-rc.4'}
 
   echo "$VERSION"
 }
