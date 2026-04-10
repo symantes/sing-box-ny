@@ -657,7 +657,8 @@ change_config() {
           PORT_HOPPING_RANGE="$NEW_RANGE"
           local HOPPING_TARGET="$PORT_HOPPING_TARGET"
           [ -z "$HOPPING_TARGET" ] && HOPPING_TARGET=$(awk -F '[:,]' '/"listen_port"/{print $2; exit}' ${WORK_DIR}/conf/*_${NODE_TAG[1]}_inbounds.json 2>/dev/null)
-          add_port_hopping_nat "$PORT_HOPPING_START" "$PORT_HOPPING_END" "$HOPPING_TARGET"
+          # 静默添加端口跳跃规则，不显示 UFW 检测和成功提示
+          (add_port_hopping_nat "$PORT_HOPPING_START" "$PORT_HOPPING_END" "$HOPPING_TARGET") >/dev/null 2>&1
           IS_HOPPING_SET=true
         else
           warning "\n $(text 36) " && unset NEW_RANGE
@@ -667,9 +668,7 @@ change_config() {
       fi
     done
 
-    hint " $(text 112) "
     export_list
-    info " $(text 37) "
     return
   fi
 
