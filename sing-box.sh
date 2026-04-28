@@ -1197,11 +1197,11 @@ check_install() {
     fi
   fi
 
-  # 并发下载订阅模板 (clash, clash2, sing-box)，在新安装和更换协议时会用到
+  # 并发下载订阅模板 (clash, clash2, sing-box-template)，在新安装和更换协议时会用到
   {
     wget --no-check-certificate --continue -qO $TEMP_DIR/clash ${GH_PROXY}${SUBSCRIBE_TEMPLATE}/clash 2>/dev/null &
     wget --no-check-certificate --continue -qO $TEMP_DIR/clash2 ${GH_PROXY}${SUBSCRIBE_TEMPLATE}/clash2 2>/dev/null &
-    wget --no-check-certificate --continue -qO $TEMP_DIR/sing-box ${GH_PROXY}${SUBSCRIBE_TEMPLATE}/sing-box 2>/dev/null &
+    wget --no-check-certificate --continue -qO $TEMP_DIR/sing-box-template ${GH_PROXY}${SUBSCRIBE_TEMPLATE}/sing-box 2>/dev/null &
     wait
   } &
 
@@ -1965,6 +1965,32 @@ add_port_hopping_ufw_block() {
       }
     }
   ' "$RULES_FILE" > "${TEMP_DIR}/$(basename "$RULES_FILE")" && mv "${TEMP_DIR}/$(basename "$RULES_FILE")" "$RULES_FILE"
+}
+
+# 删除指定 UFW 规则文件中的 PortHopping NAT 规则块
+del_port_hopping_ufw_block() {
+  local RULES_FILE=$1
+  local IP_VERSION=$2
+  local TEMP_RULES_FILE
+
+  [ ! -e "$RULES_FILE" ] && return 0
+
+  TEMP_RULES_FILE="${TEMP_DIR}/$(basename "$RULES_FILE")"
+
+  awk -v ip_version="$IP_VERSION" '
+    BEGIN { in_block=0 }
+    {
+      if ($0 ~ "^# Sing-box Family Bucket UFW NAT .* " ip_version " BEGIN$") {
+        in_block=1
+        next
+      }
+      if (in_block==1 && $0 ~ "^# Sing-box Family Bucket UFW NAT .* " ip_version " END$") {
+        in_block=0
+        next
+      }
+      if (in_block==0) print
+    }
+  ' "$RULES_FILE" > "$TEMP_RULES_FILE" && mv "$TEMP_RULES_FILE" "$RULES_FILE"
 }
 
 # 删除 UFW PortHopping NAT 规则
@@ -4212,8 +4238,9 @@ naive+quic://${UUID[22]}:${UUID[22]}@${SERVER_IP_1}:${PORT_NAIVE}?congestion_con
 
   {
     # 生成 sing-box SFM SFA SFI 订阅文件
-    cat $TEMP_DIR/sing-box | sed "s#\"<OUTBOUND_REPLACE>\",#$OUTBOUND_REPLACE#; s#\"<NODE_REPLACE>\"#${NODE_REPLACE%,}#g" | ${WORK_DIR}/jq > ${WORK_DIR}/subscribe/sing-box
-    rm -f $TEMP_DIR/sing-box
+    [ ! -s "$TEMP_DIR/sing-box-template" ] && wget --no-check-certificate --continue -qO "$TEMP_DIR/sing-box-template" "${GH_PROXY}${SUBSCRIBE_TEMPLATE}/sing-box" 2>/dev/null
+    cat $TEMP_DIR/sing-box-template | sed "s#\"<OUTBOUND_REPLACE>\",#$OUTBOUND_REPLACE#; s#\"<NODE_REPLACE>\"#${NODE_REPLACE%,}#g" | ${WORK_DIR}/jq > ${WORK_DIR}/subscribe/sing-box
+    rm -f $TEMP_DIR/sing-box-template
   } &>/dev/null
 
   # 生成二维码 url 文件
